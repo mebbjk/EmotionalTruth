@@ -33,7 +33,7 @@ export interface AppContextType {
     login: (username: string, password: string) => Promise<boolean>;
     logout: () => void;
     setLanguage: (language: LanguageCode) => void;
-    addUser: (user: Omit<User, 'id' | 'password'> & { password?: string }) => Promise<void>;
+    addUser: (user: Omit<User, 'id'>) => Promise<void>;
     updateUser: (user: User) => Promise<void>;
     deleteUser: (userId: number) => Promise<void>;
     updateSiteLogo: (logoUrl: string) => Promise<void>;

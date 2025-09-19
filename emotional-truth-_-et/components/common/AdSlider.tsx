@@ -18,7 +18,7 @@ export const AdSlider: React.FC = () => {
   }, [ads.length]);
 
   useEffect(() => {
-    if (ads.length === 0) return;
+    if (ads.length < 2) return;
     const interval = setInterval(goToNext, 5000);
     return () => clearInterval(interval);
   }, [goToNext, ads.length]);
@@ -64,41 +64,44 @@ export const AdSlider: React.FC = () => {
           <h3 className="text-white text-2xl font-semibold p-4 text-center">{currentAd.title}</h3>
         </div>
       </div>
+        {ads.length > 1 && (
+            <>
+                {/* Left Arrow */}
+                <div
+                    onClick={handlePrevClick}
+                    className="absolute top-1/2 -translate-y-1/2 left-5 text-2xl rounded-full p-2 bg-black/20 text-white cursor-pointer z-10 opacity-0 group-hover:opacity-100 transition-opacity"
+                    role="button"
+                    aria-label="Previous ad"
+                >
+                    <ChevronLeftIcon className="w-6 h-6" />
+                </div>
 
-      {/* Left Arrow */}
-      <div
-        onClick={handlePrevClick}
-        className="absolute top-1/2 -translate-y-1/2 left-5 text-2xl rounded-full p-2 bg-black/20 text-white cursor-pointer z-10 opacity-0 group-hover:opacity-100 transition-opacity"
-        role="button"
-        aria-label="Previous ad"
-      >
-        <ChevronLeftIcon className="w-6 h-6" />
-      </div>
+                {/* Right Arrow */}
+                <div
+                    onClick={handleNextClick}
+                    className="absolute top-1/2 -translate-y-1/2 right-5 text-2xl rounded-full p-2 bg-black/20 text-white cursor-pointer z-10 opacity-0 group-hover:opacity-100 transition-opacity"
+                    role="button"
+                    aria-label="Next ad"
+                >
+                    <ChevronRightIcon className="w-6 h-6" />
+                </div>
 
-      {/* Right Arrow */}
-      <div
-        onClick={handleNextClick}
-        className="absolute top-1/2 -translate-y-1/2 right-5 text-2xl rounded-full p-2 bg-black/20 text-white cursor-pointer z-10 opacity-0 group-hover:opacity-100 transition-opacity"
-        role="button"
-        aria-label="Next ad"
-      >
-        <ChevronRightIcon className="w-6 h-6" />
-      </div>
-
-      {/* Dots */}
-      <div className="absolute bottom-2 left-0 right-0 flex justify-center py-2 z-10">
-        {ads.map((_, slideIndex) => (
-          <div
-            key={slideIndex}
-            onClick={(e) => handleDotClick(e, slideIndex)}
-            className={`text-2xl cursor-pointer p-1 ${currentIndex === slideIndex ? 'text-white' : 'text-gray-400'}`}
-            role="button"
-            aria-label={`Go to ad ${slideIndex + 1}`}
-          >
-            ●
-          </div>
-        ))}
-      </div>
+                {/* Dots */}
+                <div className="absolute bottom-2 left-0 right-0 flex justify-center py-2 z-10">
+                    {ads.map((_, slideIndex) => (
+                    <button
+                        key={slideIndex}
+                        onClick={(e) => handleDotClick(e, slideIndex)}
+                        className={`h-3 w-3 rounded-full mx-1 cursor-pointer transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-gray-800 ${
+                        currentIndex === slideIndex ? 'bg-white' : 'bg-white/50 hover:bg-white/75'
+                        }`}
+                        aria-current={currentIndex === slideIndex ? 'true' : 'false'}
+                        aria-label={`Go to ad ${slideIndex + 1}`}
+                    />
+                    ))}
+                </div>
+            </>
+        )}
     </div>
   );
 };

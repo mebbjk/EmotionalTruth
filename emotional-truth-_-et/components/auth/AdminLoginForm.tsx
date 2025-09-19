@@ -3,11 +3,10 @@ import { useAppContext } from '../../hooks/useAppContext';
 import { useTranslator } from '../../hooks/useTranslator';
 import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
-import { UserIcon } from '../icons/UserIcon';
 import { LockIcon } from '../icons/LockIcon';
+import { UserIcon } from '../icons/UserIcon';
 
-export const LoginForm: React.FC = () => {
-  const [username, setUsername] = useState('');
+export const AdminLoginForm: React.FC = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -19,7 +18,7 @@ export const LoginForm: React.FC = () => {
     setError('');
     setIsLoading(true);
     try {
-      const success = await login(username, password);
+      const success = await login('admin', password);
       if (!success) {
         setError(t('invalidCredentials'));
       }
@@ -34,32 +33,30 @@ export const LoginForm: React.FC = () => {
   return (
     <div className="w-full bg-white p-8 rounded-b-lg shadow-lg border border-t-0 border-gray-200">
       <div className="text-center mb-6">
-        <h2 className="text-2xl font-bold text-gray-800">{t('loginTitle')}</h2>
-        <p className="text-gray-500 mt-2">{t('loginSubtitle')}</p>
+        <h2 className="text-2xl font-bold text-gray-800">{t('adminLoginTitle')}</h2>
       </div>
       <form onSubmit={handleSubmit}>
         <div className="space-y-4">
           <div>
-            <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="admin-username" className="block text-sm font-medium text-gray-700 mb-1">
               {t('usernameLabel')}
             </label>
             <Input
-              id="username"
+              id="admin-username"
               type="text"
               icon={<UserIcon className="w-5 h-5" />}
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="your_username"
+              value="admin"
               required
-              disabled={isLoading}
+              disabled
+              className="bg-gray-100 cursor-not-allowed"
             />
           </div>
           <div>
-            <label htmlFor="password-login" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="admin-password" className="block text-sm font-medium text-gray-700 mb-1">
               {t('passwordLabel')}
             </label>
             <Input
-              id="password-login"
+              id="admin-password"
               type="password"
               icon={<LockIcon className="w-5 h-5" />}
               value={password}
