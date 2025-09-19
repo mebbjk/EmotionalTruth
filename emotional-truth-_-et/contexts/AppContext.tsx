@@ -43,8 +43,10 @@ export const AppContextProvider: React.FC<AppContextProviderProps> = ({ children
         setAds(adsData || []);
         
         const settingsMap = new Map(settingsData?.map(s => [s.key, s.value]));
-        setLogo(settingsMap.get('logo_url') || '');
-        setAdminPassword(settingsMap.get('admin_password') || '');
+        // FIX: Explicitly convert settings value to string to prevent type errors.
+        setLogo(String(settingsMap.get('logo_url') || ''));
+        // FIX: Explicitly convert settings value to string to prevent type errors.
+        setAdminPassword(String(settingsMap.get('admin_password') || ''));
 
         const savedUser = sessionStorage.getItem('currentUser');
         if (savedUser) {

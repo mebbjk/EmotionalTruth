@@ -77,7 +77,8 @@ export const UserManagementPanel: React.FC = () => {
     if ('id' in user) {
         await updateUser(user as User);
     } else {
-        await addUser(user as Omit<User, 'id', 'password'> & {password: string});
+        // FIX: The Omit utility type requires a union of keys as its second argument.
+        await addUser(user as Omit<User, 'id' | 'password'> & {password: string});
     }
     setIsModalOpen(false);
     setEditingUser(undefined);
