@@ -13,7 +13,6 @@ export const AppContextProvider: React.FC<AppContextProviderProps> = ({ children
   const [users, setUsers] = useState<User[]>([]);
   const [ads, setAds] = useState<Ad[]>([]);
   const [logo, setLogo] = useState<string>('');
-  const [adminPassword, setAdminPassword] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [language, setLanguageState] = useState<LanguageCode>(() => {
     const savedLang = localStorage.getItem('language');
@@ -46,7 +45,7 @@ export const AppContextProvider: React.FC<AppContextProviderProps> = ({ children
         const safeSettingsData = settingsData || [];
         const settingsMap = new Map(safeSettingsData.map(s => [s.key, s.value]));
         setLogo(String(settingsMap.get('logo_url') || ''));
-        setAdminPassword(String(settingsMap.get('admin_password') || ''));
+        // Admin password is no longer stored in the 'settings' table.
 
         const savedUser = sessionStorage.getItem('currentUser');
         if (savedUser) {
@@ -62,28 +61,29 @@ export const AppContextProvider: React.FC<AppContextProviderProps> = ({ children
   }, []);
 
   const login = async (username: string, password: string): Promise<boolean> => {
-    let user: User | null = null;
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('username', username)
+      .eq('password', password)
+      .single();
     
-    if (username.toLowerCase() === 'admin') {
-      if (password === adminPassword) {
-         const { data, error } = await supabase.from('users').select('*').eq('username', 'admin').single();
-         if (error) console.error("Admin user not found:", error);
-         user = data;
-      }
-    } else {
-       const { data, error } = await supabase.from('users').select('*').eq('username', username).eq('password', password).single();
-       if (error) console.error("Error fetching user:", error);
-       user = data;
+    if (error || !user) {
+        console.log(`Login failed for user: ${username}`);
+        return false;
     }
     
-    if (user) {
-      const userToStore = { ...user };
-      delete userToStore.password;
-      setCurrentUser(userToStore);
-      sessionStorage.setItem('currentUser', JSON.stringify(userToStore));
-      return true;
+    // Ensure that login via admin form is only for the actual admin role
+    if (username.toLowerCase() === 'admin' && user.role !== 'admin') {
+        console.error("Login attempt for admin username without admin role.");
+        return false;
     }
-    return false;
+    
+    const userToStore = { ...user };
+    delete userToStore.password;
+    setCurrentUser(userToStore);
+    sessionStorage.setItem('currentUser', JSON.stringify(userToStore));
+    return true;
   };
 
   const logout = () => {
@@ -130,9 +130,8 @@ export const AppContextProvider: React.FC<AppContextProviderProps> = ({ children
   };
 
   const updateAdminPassword = async (newPassword: string) => {
-    const { error } = await supabase.from('settings').update({ value: newPassword }).eq('key', 'admin_password');
+    const { error } = await supabase.from('users').update({ password: newPassword }).eq('username', 'admin');
     if (error) throw error;
-    setAdminPassword(newPassword);
   };
 
   const addAd = async (adData: Omit<Ad, 'id'>) => {
