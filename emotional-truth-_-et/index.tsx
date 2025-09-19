@@ -4,6 +4,7 @@ import { AppContextProvider } from './contexts/AppContext';
 import { useAppContext } from './hooks/useAppContext';
 import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
+import './index.css'; // <-- ADD THIS LINE
 
 const App: React.FC = () => {
   const { currentUser } = useAppContext();
