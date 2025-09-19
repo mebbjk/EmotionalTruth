@@ -5,8 +5,6 @@ export interface Language {
   name: string;
 }
 
-export type UserRole = 'admin' | 'user';
-
 export interface User {
   id: number;
   username: string;
@@ -14,18 +12,36 @@ export interface User {
   firstName: string;
   lastName: string;
   email: string;
-  role: UserRole;
-  videoUrl?: string;
+  role: 'user' | 'admin';
+  videoUrl: string;
 }
 
 export interface Ad {
-    id: number;
-    title: string;
-    imageUrl: string;
-    link: string;
+  id: number;
+  title: string;
+  imageUrl: string;
+  link: string;
 }
 
-export interface TranslationKeys {
+export interface AppContextType {
+    currentUser: User | null;
+    users: User[];
+    ads: Ad[];
+    logo: string;
+    language: LanguageCode;
+    login: (username: string, password: string) => Promise<boolean>;
+    logout: () => void;
+    setLanguage: (language: LanguageCode) => void;
+    addUser: (user: Omit<User, 'id' | 'password'> & { password?: string }) => Promise<void>;
+    updateUser: (user: User) => Promise<void>;
+    deleteUser: (userId: number) => Promise<void>;
+    updateSiteLogo: (logoUrl: string) => Promise<void>;
+    addAd: (ad: Omit<Ad, 'id'>) => Promise<void>;
+    updateAd: (ad: Ad) => Promise<void>;
+    deleteAd: (adId: number) => Promise<void>;
+}
+
+export type TranslationKeys = {
   welcomeUser: string;
   logout: string;
   login: string;
@@ -56,6 +72,12 @@ export interface TranslationKeys {
   save: string;
   delete: string;
   deleteUserConfirmation: string;
+  forgotPassword: string;
+  forgotPasswordPrompt: string;
+  emailForReset: string;
+  sendResetLink: string;
+  resetLinkSent: string;
+  userNotFound: string;
   siteLogoUrl: string;
   updateSettings: string;
   settingsUpdated: string;
@@ -66,12 +88,6 @@ export interface TranslationKeys {
   imageUrl: string;
   link: string;
   deleteAdConfirmation: string;
-  forgotPassword: string;
-  forgotPasswordPrompt: string;
-  emailForReset: string;
-  sendResetLink: string;
-  resetLinkSent: string;
-  userNotFound: string;
   uploadImage: string;
   imagePreview: string;
   changePassword: string;
@@ -84,22 +100,4 @@ export interface TranslationKeys {
   changeImage: string;
   uploadedImage: string;
   adUpdatedSuccess: string;
-}
-
-export type AppContextType = {
-    currentUser: User | null;
-    users: User[];
-    ads: Ad[];
-    logo: string;
-    language: LanguageCode;
-    login: (username: string, password: string, isAdmin: boolean) => boolean;
-    logout: () => void;
-    setLanguage: (language: LanguageCode) => void;
-    updateLogo: (logoUrl: string) => void;
-    updateUser: (user: User) => void;
-    deleteUser: (userId: number) => void;
-    updateAd: (ad: Ad) => void;
-    addUser: (user: Omit<User, 'id' | 'role'>) => void;
-    findUserByEmail: (email: string) => User | undefined;
-    updateAdminPassword: (newPassword: string) => boolean;
 };

@@ -3,109 +3,123 @@ import { useAppContext } from '../../hooks/useAppContext';
 import { useTranslator } from '../../hooks/useTranslator';
 import { Ad } from '../../types';
 import { Button } from '../ui/Button';
-import { Input } from '../ui/Input';
 import { Modal } from '../ui/Modal';
+import { Input } from '../ui/Input';
 import { EditIcon } from '../icons/EditIcon';
+import { TrashIcon } from '../icons/TrashIcon';
+
+const AdForm: React.FC<{ ad?: Ad; onSave: (ad: Ad | Omit<Ad, 'id'>) => void; onCancel: () => void }> = ({ ad, onSave, onCancel }) => {
+    const t = useTranslator();
+    const [formData, setFormData] = useState({
+        title: ad?.title || '',
+        imageUrl: ad?.imageUrl || '',
+        link: ad?.link || '',
+    });
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        onSave(ad ? { ...ad, ...formData } : formData);
+    };
+
+    return (
+        <form onSubmit={handleSubmit} className="space-y-4">
+            <Input name="title" value={formData.title} onChange={handleChange} placeholder={t('title')} required />
+            <Input name="imageUrl" value={formData.imageUrl} onChange={handleChange} placeholder={t('imageUrl')} required />
+            <Input name="link" value={formData.link} onChange={handleChange} placeholder={t('link')} required />
+            <div className="flex justify-end space-x-2">
+                <Button type="button" variant="secondary" onClick={onCancel}>{t('cancel')}</Button>
+                <Button type="submit">{t('save')}</Button>
+            </div>
+        </form>
+    );
+};
 
 export const AdSettingsPanel: React.FC = () => {
-  const { ads, updateAd } = useAppContext();
+  const { ads, addAd, updateAd, deleteAd } = useAppContext();
   const t = useTranslator();
-
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [currentAd, setCurrentAd] = useState<Ad | null>(null);
-  const [adPreview, setAdPreview] = useState<string | null>(null);
+  const [editingAd, setEditingAd] = useState<Ad | undefined>(undefined);
+  const [deletingAd, setDeletingAd] = useState<Ad | null>(null);
 
-  const openEditModal = (ad: Ad) => {
-    setCurrentAd(ad);
-    setAdPreview(ad.imageUrl);
+  const handleAddAd = () => {
+    setEditingAd(undefined);
     setIsModalOpen(true);
   };
-  
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-    setCurrentAd(null);
-    setAdPreview(null);
+
+  const handleEditAd = (ad: Ad) => {
+    setEditingAd(ad);
+    setIsModalOpen(true);
   };
 
-  const handleSaveAd = () => {
-    if (currentAd) {
-      updateAd({ ...currentAd, imageUrl: adPreview || currentAd.imageUrl });
+  const handleSaveAd = async (ad: Ad | Omit<Ad, 'id'>) => {
+    if ('id' in ad) {
+        await updateAd(ad as Ad);
+    } else {
+        await addAd(ad as Omit<Ad, 'id'>);
     }
-    handleCloseModal();
+    setIsModalOpen(false);
+    setEditingAd(undefined);
   };
-  
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    if (currentAd) {
-        setCurrentAd(prev => ({ ...prev!, [name]: value }));
-    }
+
+  const handleDeleteConfirm = (ad: Ad) => {
+    setDeletingAd(ad);
   };
-  
-  const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setAdPreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+
+  const handleDelete = async () => {
+    if (deletingAd) {
+      await deleteAd(deletingAd.id);
+      setDeletingAd(null);
     }
   };
 
   return (
     <div>
-      <h3 className="text-xl font-semibold mb-4">{t('adList')}</h3>
-      <div className="space-y-4">
-        {ads.map(ad => (
-          <div key={ad.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border">
-            <div className="flex items-center space-x-4">
-              <img src={ad.imageUrl} alt={ad.title} className="w-24 h-12 object-cover rounded-md"/>
-              <div>
-                <p className="font-semibold text-gray-800">{ad.title}</p>
-                <a href={ad.link} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-500 hover:underline">{ad.link}</a>
-              </div>
-            </div>
-            <Button onClick={() => openEditModal(ad)} variant="secondary">
-              <EditIcon className="w-5 h-5 mr-2" />
-              {t('editAd')}
-            </Button>
-          </div>
-        ))}
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-xl font-semibold">{t('adList')}</h3>
+        <Button onClick={handleAddAd}>{t('addAd')}</Button>
       </div>
-      
-      {/* Edit Ad Modal */}
-      {currentAd && (
-        <Modal
-          isOpen={isModalOpen}
-          onClose={handleCloseModal}
-          title={t('editAd')}
-          footer={
-            <div className="flex gap-2">
-              <Button variant="secondary" onClick={handleCloseModal}>{t('cancel')}</Button>
-              <Button onClick={handleSaveAd}>{t('save')}</Button>
-            </div>
-          }
-        >
-          <div className="space-y-4">
-            <Input name="title" value={currentAd.title} onChange={handleChange} placeholder={t('title')} />
-            <Input name="link" value={currentAd.link} onChange={handleChange} placeholder={t('link')} />
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">{t('changeImage')}</label>
-              <Input 
-                type="file"
-                accept="image/png, image/jpeg, image/gif"
-                onChange={handleImageFileChange}
-              />
-            </div>
-            {adPreview && (
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('imagePreview')}</label>
-                    <img src={adPreview} alt="Ad Preview" className="w-full h-32 object-cover rounded-md border" />
-                </div>
-            )}
+      <div className="overflow-x-auto">
+        <table className="min-w-full bg-white border">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="py-2 px-4 border-b text-left">{t('title')}</th>
+              <th className="py-2 px-4 border-b text-left">{t('imageUrl')}</th>
+              <th className="py-2 px-4 border-b text-left">{t('link')}</th>
+              <th className="py-2 px-4 border-b text-left">{t('actions')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {ads.map(ad => (
+              <tr key={ad.id}>
+                <td className="py-2 px-4 border-b">{ad.title}</td>
+                <td className="py-2 px-4 border-b truncate max-w-xs">{ad.imageUrl}</td>
+                <td className="py-2 px-4 border-b truncate max-w-xs">{ad.link}</td>
+                <td className="py-2 px-4 border-b">
+                  <div className="flex space-x-2">
+                    <button onClick={() => handleEditAd(ad)} className="text-blue-600 hover:text-blue-800"><EditIcon /></button>
+                    <button onClick={() => handleDeleteConfirm(ad)} className="text-red-600 hover:text-red-800"><TrashIcon /></button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingAd ? t('editAd') : t('addAd')}>
+        <AdForm ad={editingAd} onSave={handleSaveAd} onCancel={() => setIsModalOpen(false)} />
+      </Modal>
+
+      <Modal isOpen={!!deletingAd} onClose={() => setDeletingAd(null)} title={t('deleteAdConfirmation')}>
+          <div>{t('deleteAdConfirmation')}</div>
+          <div className="flex justify-end space-x-2 mt-4">
+            <Button variant="secondary" onClick={() => setDeletingAd(null)}>{t('cancel')}</Button>
+            <Button variant="danger" onClick={handleDelete}>{t('delete')}</Button>
           </div>
-        </Modal>
-      )}
+      </Modal>
     </div>
   );
 };

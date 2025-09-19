@@ -1,95 +1,103 @@
-import React, { createContext, useState, ReactNode, useCallback, useEffect } from 'react';
-import { User, LanguageCode, Ad, AppContextType } from '../types';
+import React, { createContext, useState, useEffect, ReactNode } from 'react';
+import { AppContextType, User, Ad, LanguageCode } from '../types';
 
-// Mock Data with working image URLs
+// Mock Data
 const MOCK_USERS: User[] = [
-  // Passwords are removed from client-side mock data for security
-  { id: 1, username: 'admin', firstName: 'Admin', lastName: 'User', email: 'admin@example.com', role: 'admin' },
-  { id: 2, username: 'user1', firstName: 'John', lastName: 'Doe', email: 'john.doe@example.com', role: 'user', videoUrl: 'https://www.youtube.com/watch?v=M7FIvfx5J10' },
-  { id: 3, username: 'user2', firstName: 'Jane', lastName: 'Smith', email: 'jane.smith@example.com', role: 'user', videoUrl: 'https://www.youtube.com/watch?v=z_AbfPXTKms' },
+  { id: 1, username: 'admin', password: 'admin', firstName: 'Admin', lastName: 'User', email: 'admin@example.com', role: 'admin', videoUrl: '' },
+  { id: 2, username: 'user', password: 'user', firstName: 'John', lastName: 'Doe', email: 'john.doe@example.com', role: 'user', videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
 ];
 
 const MOCK_ADS: Ad[] = [
-  { id: 1, title: 'Unbeatable Deals Just for You', imageUrl: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?q=80&w=2070&auto=format&fit=crop', link: 'https://example.com/deal/1' },
-  { id: 2, title: 'Discover Amazing Products', imageUrl: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?q=80&w=1999&auto=format&fit=crop', link: 'https://example.com/product/2' },
-  { id: 3, title: 'Limited Time Offer!', imageUrl: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?q=80&w=2070&auto=format&fit=crop', link: 'https://example.com/offer/3' },
+    { id: 1, title: 'Ad 1: Discover Our New Product', imageUrl: 'https://via.placeholder.com/800x200/FF0000/FFFFFF?text=Ad+1', link: '#' },
+    { id: 2, title: 'Ad 2: Special Summer Sale', imageUrl: 'https://via.placeholder.com/800x200/00FF00/FFFFFF?text=Ad+2', link: '#' },
+    { id: 3, title: 'Ad 3: Join Our Community', imageUrl: 'https://via.placeholder.com/800x200/0000FF/FFFFFF?text=Ad+3', link: '#' },
 ];
+
+const MOCK_LOGO = 'https://via.placeholder.com/150x50/CCCCCC/FFFFFF?text=ET+Logo';
 
 
 export const AppContext = createContext<AppContextType | undefined>(undefined);
 
-export const AppContextProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+interface AppContextProviderProps {
+  children: ReactNode;
+}
+
+export const AppContextProvider: React.FC<AppContextProviderProps> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [users, setUsers] = useState<User[]>(MOCK_USERS);
   const [ads, setAds] = useState<Ad[]>(MOCK_ADS);
-  const [logo, setLogo] = useState<string>('https://i.imgur.com/gCe1sV2.png'); // Default working logo
-  const [adminPassword, setAdminPassword] = useState('adminpassword'); // In-memory admin password
-
+  const [logo, setLogo] = useState<string>(MOCK_LOGO);
   const [language, setLanguageState] = useState<LanguageCode>(() => {
     const savedLang = localStorage.getItem('language');
     return (savedLang as LanguageCode) || 'en';
   });
 
-  const setLanguage = useCallback((language: LanguageCode) => {
-    localStorage.setItem('language', language);
-    setLanguageState(language);
+  // Load current user from session storage
+  useEffect(() => {
+    const savedUser = sessionStorage.getItem('currentUser');
+    if (savedUser) {
+      setCurrentUser(JSON.parse(savedUser));
+    }
   }, []);
 
-  const login = useCallback((username: string, password: string, isAdmin: boolean): boolean => {
-    if (isAdmin) {
-        if (username === 'admin' && password === adminPassword) {
-            const adminUser = users.find(u => u.role === 'admin');
-            if(adminUser) {
-                setCurrentUser(adminUser);
-                return true;
-            }
-        }
-        return false;
-    }
-
-    // For demo purposes, allow login with correct username and any non-empty password
-    const user = users.find(u => u.username === username && u.role === 'user');
-    if (user && password) { // Check if password is not empty
-      setCurrentUser(user);
+  const login = async (username: string, password: string): Promise<boolean> => {
+    const user = users.find(u => u.username === username && u.password === password);
+    if (user) {
+      const userToStore = { ...user };
+      delete userToStore.password;
+      setCurrentUser(userToStore);
+      sessionStorage.setItem('currentUser', JSON.stringify(userToStore));
       return true;
     }
     return false;
-  }, [users, adminPassword]);
+  };
 
-
-  const logout = useCallback(() => {
+  const logout = () => {
     setCurrentUser(null);
-  }, []);
+    sessionStorage.removeItem('currentUser');
+  };
 
-  const findUserByEmail = useCallback((email: string) => {
-    return users.find(user => user.email.toLowerCase() === email.toLowerCase());
-  }, [users]);
+  const setLanguage = (lang: LanguageCode) => {
+    setLanguageState(lang);
+    localStorage.setItem('language', lang);
+  };
+
+  const addUser = async (user: Omit<User, 'id' | 'password'> & { password?: string }) => {
+    const newUser: User = { ...user, id: Date.now(), role: 'user', videoUrl: user.videoUrl || '' };
+    if(user.password) newUser.password = user.password;
+    setUsers([...users, newUser]);
+  };
+
+  const updateUser = async (updatedUser: User) => {
+    setUsers(users.map(u => u.id === updatedUser.id ? { ...u, ...updatedUser } : u));
+    if (currentUser?.id === updatedUser.id) {
+        const userToStore = { ...currentUser, ...updatedUser };
+        delete userToStore.password;
+        setCurrentUser(userToStore);
+        sessionStorage.setItem('currentUser', JSON.stringify(userToStore));
+    }
+  };
+
+  const deleteUser = async (userId: number) => {
+    setUsers(users.filter(u => u.id !== userId));
+  };
   
-  const updateLogo = useCallback((logoUrl: string) => {
+  const updateSiteLogo = async (logoUrl: string) => {
     setLogo(logoUrl);
-  }, []);
-  
-  const updateUser = useCallback((updatedUser: User) => {
-    setUsers(prev => prev.map(user => (user.id === updatedUser.id ? updatedUser : user)));
-  }, []);
+  };
 
-  const deleteUser = useCallback((userId: number) => {
-    setUsers(prev => prev.filter(user => user.id !== userId));
-  }, []);
+  const addAd = async (ad: Omit<Ad, 'id'>) => {
+    const newAd: Ad = { ...ad, id: Date.now() };
+    setAds([...ads, newAd]);
+  };
 
-  const updateAd = useCallback((updatedAd: Ad) => {
-    setAds(prev => prev.map(ad => (ad.id === updatedAd.id ? updatedAd : ad)));
-  }, []);
-  
-  const addUser = useCallback((user: Omit<User, 'id' | 'role'>) => {
-    const newUser: User = { ...user, id: Date.now(), role: 'user' };
-    setUsers(prev => [...prev, newUser]);
-  }, []);
+  const updateAd = async (updatedAd: Ad) => {
+    setAds(ads.map(ad => ad.id === updatedAd.id ? updatedAd : ad));
+  };
 
-  const updateAdminPassword = useCallback((newPassword: string) => {
-    setAdminPassword(newPassword);
-    return true; // In a real app, you'd confirm this with a backend.
-  }, []);
+  const deleteAd = async (adId: number) => {
+    setAds(ads.filter(ad => ad.id !== adId));
+  };
 
   const value: AppContextType = {
     currentUser,
@@ -100,13 +108,13 @@ export const AppContextProvider: React.FC<{ children: ReactNode }> = ({ children
     login,
     logout,
     setLanguage,
-    updateLogo,
+    addUser,
     updateUser,
     deleteUser,
+    updateSiteLogo,
+    addAd,
     updateAd,
-    addUser,
-    findUserByEmail,
-    updateAdminPassword,
+    deleteAd,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
