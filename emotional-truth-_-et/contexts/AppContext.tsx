@@ -1,20 +1,6 @@
 import React, { createContext, useState, useEffect, ReactNode } from 'react';
 import { AppContextType, User, Ad, LanguageCode } from '../types';
-
-// Mock Data
-const MOCK_USERS: User[] = [
-  { id: 1, username: 'admin', password: 'admin', firstName: 'Admin', lastName: 'User', email: 'admin@example.com', role: 'admin', videoUrl: '' },
-  { id: 2, username: 'user', password: 'user', firstName: 'John', lastName: 'Doe', email: 'john.doe@example.com', role: 'user', videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
-];
-
-const MOCK_ADS: Ad[] = [
-    { id: 1, title: 'Ad 1: Discover Our New Product', imageUrl: 'https://via.placeholder.com/800x200/FF0000/FFFFFF?text=Ad+1', link: '#' },
-    { id: 2, title: 'Ad 2: Special Summer Sale', imageUrl: 'https://via.placeholder.com/800x200/00FF00/FFFFFF?text=Ad+2', link: '#' },
-    { id: 3, title: 'Ad 3: Join Our Community', imageUrl: 'https://via.placeholder.com/800x200/0000FF/FFFFFF?text=Ad+3', link: '#' },
-];
-
-const MOCK_LOGO = 'https://via.placeholder.com/150x50/CCCCCC/FFFFFF?text=ET+Logo';
-
+import { supabase } from '../services/supabase';
 
 export const AppContext = createContext<AppContextType | undefined>(undefined);
 
@@ -24,24 +10,70 @@ interface AppContextProviderProps {
 
 export const AppContextProvider: React.FC<AppContextProviderProps> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [users, setUsers] = useState<User[]>(MOCK_USERS);
-  const [ads, setAds] = useState<Ad[]>(MOCK_ADS);
-  const [logo, setLogo] = useState<string>(MOCK_LOGO);
+  const [users, setUsers] = useState<User[]>([]);
+  const [ads, setAds] = useState<Ad[]>([]);
+  const [logo, setLogo] = useState<string>('');
+  const [adminPassword, setAdminPassword] = useState<string>('');
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [language, setLanguageState] = useState<LanguageCode>(() => {
     const savedLang = localStorage.getItem('language');
     return (savedLang as LanguageCode) || 'en';
   });
 
-  // Load current user from session storage
+  // Fetch all data from Supabase on initial load
   useEffect(() => {
-    const savedUser = sessionStorage.getItem('currentUser');
-    if (savedUser) {
-      setCurrentUser(JSON.parse(savedUser));
-    }
+    const fetchData = async () => {
+      setIsLoading(true);
+      try {
+        const [
+          { data: usersData, error: usersError },
+          { data: adsData, error: adsError },
+          { data: settingsData, error: settingsError }
+        ] = await Promise.all([
+          supabase.from('users').select('*'),
+          supabase.from('ads').select('*'),
+          supabase.from('settings').select('key, value')
+        ]);
+
+        if (usersError) throw usersError;
+        if (adsError) throw adsError;
+        if (settingsError) throw settingsError;
+
+        setUsers(usersData || []);
+        setAds(adsData || []);
+        
+        const settingsMap = new Map(settingsData?.map(s => [s.key, s.value]));
+        setLogo(settingsMap.get('logo_url') || '');
+        setAdminPassword(settingsMap.get('admin_password') || '');
+
+        const savedUser = sessionStorage.getItem('currentUser');
+        if (savedUser) {
+          setCurrentUser(JSON.parse(savedUser));
+        }
+      } catch (error) {
+        console.error("Error fetching initial data:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchData();
   }, []);
 
   const login = async (username: string, password: string): Promise<boolean> => {
-    const user = users.find(u => u.username === username && u.password === password);
+    let user: User | null = null;
+    
+    if (username.toLowerCase() === 'admin') {
+      if (password === adminPassword) {
+         const { data, error } = await supabase.from('users').select('*').eq('username', 'admin').single();
+         if (error) console.error("Admin user not found:", error);
+         user = data;
+      }
+    } else {
+       const { data, error } = await supabase.from('users').select('*').eq('username', username).eq('password', password).single();
+       if (error) console.error("Error fetching user:", error);
+       user = data;
+    }
+    
     if (user) {
       const userToStore = { ...user };
       delete userToStore.password;
@@ -62,40 +94,61 @@ export const AppContextProvider: React.FC<AppContextProviderProps> = ({ children
     localStorage.setItem('language', lang);
   };
 
-  const addUser = async (user: Omit<User, 'id' | 'password'> & { password?: string }) => {
-    const newUser: User = { ...user, id: Date.now(), role: 'user', videoUrl: user.videoUrl || '' };
-    if(user.password) newUser.password = user.password;
-    setUsers([...users, newUser]);
+  const addUser = async (userData: Omit<User, 'id'>) => {
+    const { data, error } = await supabase.from('users').insert([userData]).select();
+    if (error) throw error;
+    if (data) setUsers([...users, data[0]]);
   };
 
   const updateUser = async (updatedUser: User) => {
-    setUsers(users.map(u => u.id === updatedUser.id ? { ...u, ...updatedUser } : u));
-    if (currentUser?.id === updatedUser.id) {
-        const userToStore = { ...currentUser, ...updatedUser };
+    const { id, ...updateData } = updatedUser;
+    const { data, error } = await supabase.from('users').update(updateData).eq('id', id).select();
+    if (error) throw error;
+    if (data) {
+      setUsers(users.map(u => u.id === id ? data[0] : u));
+      if (currentUser?.id === id) {
+        const userToStore = data[0];
         delete userToStore.password;
         setCurrentUser(userToStore);
         sessionStorage.setItem('currentUser', JSON.stringify(userToStore));
+      }
     }
   };
 
   const deleteUser = async (userId: number) => {
+    const { error } = await supabase.from('users').delete().eq('id', userId);
+    if (error) throw error;
     setUsers(users.filter(u => u.id !== userId));
   };
   
   const updateSiteLogo = async (logoUrl: string) => {
+    const { error } = await supabase.from('settings').update({ value: logoUrl }).eq('key', 'logo_url');
+    if (error) throw error;
     setLogo(logoUrl);
   };
 
-  const addAd = async (ad: Omit<Ad, 'id'>) => {
-    const newAd: Ad = { ...ad, id: Date.now() };
-    setAds([...ads, newAd]);
+  const updateAdminPassword = async (newPassword: string) => {
+    const { error } = await supabase.from('settings').update({ value: newPassword }).eq('key', 'admin_password');
+    if (error) throw error;
+    setAdminPassword(newPassword);
+  };
+
+  const addAd = async (adData: Omit<Ad, 'id'>) => {
+    const { data, error } = await supabase.from('ads').insert([adData]).select();
+    if (error) throw error;
+    if (data) setAds([...ads, data[0]]);
   };
 
   const updateAd = async (updatedAd: Ad) => {
-    setAds(ads.map(ad => ad.id === updatedAd.id ? updatedAd : ad));
+    const { id, ...updateData } = updatedAd;
+    const { data, error } = await supabase.from('ads').update(updateData).eq('id', id).select();
+    if (error) throw error;
+    if (data) setAds(ads.map(ad => ad.id === id ? data[0] : ad));
   };
 
   const deleteAd = async (adId: number) => {
+    const { error } = await supabase.from('ads').delete().eq('id', adId);
+    if (error) throw error;
     setAds(ads.filter(ad => ad.id !== adId));
   };
 
@@ -105,6 +158,7 @@ export const AppContextProvider: React.FC<AppContextProviderProps> = ({ children
     ads,
     logo,
     language,
+    isLoading,
     login,
     logout,
     setLanguage,
@@ -112,6 +166,7 @@ export const AppContextProvider: React.FC<AppContextProviderProps> = ({ children
     updateUser,
     deleteUser,
     updateSiteLogo,
+    updateAdminPassword,
     addAd,
     updateAd,
     deleteAd,

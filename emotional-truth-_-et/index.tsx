@@ -6,13 +6,20 @@ import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
 import './index.css';
 
-// This component uses the context and must be a child of the provider.
 const AppRouter: React.FC = () => {
-  const { currentUser } = useAppContext();
+  const { currentUser, isLoading } = useAppContext();
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-100">
+        <div className="text-xl font-semibold text-gray-700">Loading...</div>
+      </div>
+    );
+  }
+
   return currentUser ? <DashboardPage /> : <LoginPage />;
 };
 
-// The root of the application
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
     <AppContextProvider>

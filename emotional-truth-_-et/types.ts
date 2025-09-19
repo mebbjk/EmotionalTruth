@@ -29,6 +29,7 @@ export interface AppContextType {
     ads: Ad[];
     logo: string;
     language: LanguageCode;
+    isLoading: boolean;
     login: (username: string, password: string) => Promise<boolean>;
     logout: () => void;
     setLanguage: (language: LanguageCode) => void;
@@ -36,6 +37,7 @@ export interface AppContextType {
     updateUser: (user: User) => Promise<void>;
     deleteUser: (userId: number) => Promise<void>;
     updateSiteLogo: (logoUrl: string) => Promise<void>;
+    updateAdminPassword: (newPassword: string) => Promise<void>;
     addAd: (ad: Omit<Ad, 'id'>) => Promise<void>;
     updateAd: (ad: Ad) => Promise<void>;
     deleteAd: (adId: number) => Promise<void>;
@@ -100,4 +102,9 @@ export type TranslationKeys = {
   changeImage: string;
   uploadedImage: string;
   adUpdatedSuccess: string;
+  loggingIn: string;
+  saving: string;
+  deleting: string;
+  updating: string;
+  loading: string;
 };

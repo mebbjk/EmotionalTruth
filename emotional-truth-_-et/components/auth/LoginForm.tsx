@@ -10,15 +10,24 @@ export const LoginForm: React.FC = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const { login } = useAppContext();
   const t = useTranslator();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    const success = await login(username, password);
-    if (!success) {
-      setError(t('invalidCredentials'));
+    setIsLoading(true);
+    try {
+      const success = await login(username, password);
+      if (!success) {
+        setError(t('invalidCredentials'));
+      }
+    } catch (err) {
+      setError('An unexpected error occurred.');
+      console.error(err);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -42,6 +51,7 @@ export const LoginForm: React.FC = () => {
               onChange={(e) => setUsername(e.target.value)}
               placeholder="your_username"
               required
+              disabled={isLoading}
             />
           </div>
           <div>
@@ -56,13 +66,14 @@ export const LoginForm: React.FC = () => {
               onChange={(e) => setPassword(e.target.value)}
               placeholder="********"
               required
+              disabled={isLoading}
             />
           </div>
         </div>
         {error && <p className="mt-4 text-sm text-red-600 text-center">{error}</p>}
         <div className="mt-6">
-          <Button type="submit" className="w-full">
-            {t('login')}
+          <Button type="submit" className="w-full" disabled={isLoading}>
+            {isLoading ? t('loggingIn') : t('login')}
           </Button>
         </div>
       </form>

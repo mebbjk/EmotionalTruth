@@ -8,8 +8,9 @@ import { Input } from '../ui/Input';
 import { EditIcon } from '../icons/EditIcon';
 import { TrashIcon } from '../icons/TrashIcon';
 
-const UserForm: React.FC<{ user?: User; onSave: (user: User | Omit<User, 'id'>) => void; onCancel: () => void }> = ({ user, onSave, onCancel }) => {
+const UserForm: React.FC<{ user?: User; onSave: (user: User | Omit<User, 'id'>) => Promise<void>; onCancel: () => void }> = ({ user, onSave, onCancel }) => {
     const t = useTranslator();
+    const [isLoading, setIsLoading] = useState(false);
     const [formData, setFormData] = useState({
         username: user?.username || '',
         firstName: user?.firstName || '',
@@ -23,27 +24,31 @@ const UserForm: React.FC<{ user?: User; onSave: (user: User | Omit<User, 'id'>) 
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (user) {
-            onSave({ ...user, ...formData });
-        } else {
-            // FIX: Add role to the new user object to match the expected type.
-            onSave({ ...formData, role: 'user' });
+        setIsLoading(true);
+        try {
+            if (user) {
+                await onSave({ ...user, ...formData });
+            } else {
+                await onSave({ ...formData, role: 'user' });
+            }
+        } finally {
+            setIsLoading(false);
         }
     };
     
     return (
         <form onSubmit={handleSubmit} className="space-y-4">
-            <Input name="username" value={formData.username} onChange={handleChange} placeholder={t('usernameLabel')} required />
-            <Input name="firstName" value={formData.firstName} onChange={handleChange} placeholder={t('firstName')} required />
-            <Input name="lastName" value={formData.lastName} onChange={handleChange} placeholder={t('lastName')} required />
-            <Input name="email" type="email" value={formData.email} onChange={handleChange} placeholder={t('email')} required />
-            <Input name="videoUrl" value={formData.videoUrl} onChange={handleChange} placeholder={t('videoUrl')} />
-            {!user && <Input name="password" type="password" value={formData.password} onChange={handleChange} placeholder={t('passwordLabel')} required />}
+            <Input name="username" value={formData.username} onChange={handleChange} placeholder={t('usernameLabel')} required disabled={isLoading} />
+            <Input name="firstName" value={formData.firstName} onChange={handleChange} placeholder={t('firstName')} required disabled={isLoading} />
+            <Input name="lastName" value={formData.lastName} onChange={handleChange} placeholder={t('lastName')} required disabled={isLoading} />
+            <Input name="email" type="email" value={formData.email} onChange={handleChange} placeholder={t('email')} required disabled={isLoading} />
+            <Input name="videoUrl" value={formData.videoUrl} onChange={handleChange} placeholder={t('videoUrl')} disabled={isLoading} />
+            {!user && <Input name="password" type="password" value={formData.password} onChange={handleChange} placeholder={t('passwordLabel')} required disabled={isLoading} />}
             <div className="flex justify-end space-x-2">
-                <Button type="button" variant="secondary" onClick={onCancel}>{t('cancel')}</Button>
-                <Button type="submit">{t('save')}</Button>
+                <Button type="button" variant="secondary" onClick={onCancel} disabled={isLoading}>{t('cancel')}</Button>
+                <Button type="submit" disabled={isLoading}>{isLoading ? t('saving') : t('save')}</Button>
             </div>
         </form>
     );
@@ -56,6 +61,7 @@ export const UserManagementPanel: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | undefined>(undefined);
   const [deletingUser, setDeletingUser] = useState<User | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const handleAddUser = () => {
     setEditingUser(undefined);
@@ -71,7 +77,7 @@ export const UserManagementPanel: React.FC = () => {
     if ('id' in user) {
         await updateUser(user as User);
     } else {
-        await addUser(user as Omit<User, 'id'> & { password?: string });
+        await addUser(user as Omit<User, 'id', 'password'> & {password: string});
     }
     setIsModalOpen(false);
     setEditingUser(undefined);
@@ -83,8 +89,13 @@ export const UserManagementPanel: React.FC = () => {
 
   const handleDelete = async () => {
     if (deletingUser) {
-        await deleteUser(deletingUser.id);
-        setDeletingUser(null);
+        setIsDeleting(true);
+        try {
+            await deleteUser(deletingUser.id);
+        } finally {
+            setIsDeleting(false);
+            setDeletingUser(null);
+        }
     }
   };
 
@@ -106,7 +117,7 @@ export const UserManagementPanel: React.FC = () => {
             </tr>
           </thead>
           <tbody>
-            {users.map(user => (
+            {users.filter(u => u.role !== 'admin').map(user => (
               <tr key={user.id}>
                 <td className="py-2 px-4 border-b">{user.username}</td>
                 <td className="py-2 px-4 border-b">{user.firstName}</td>
@@ -115,7 +126,7 @@ export const UserManagementPanel: React.FC = () => {
                 <td className="py-2 px-4 border-b">
                   <div className="flex space-x-2">
                     <button onClick={() => handleEditUser(user)} className="text-blue-600 hover:text-blue-800"><EditIcon /></button>
-                    {user.role !== 'admin' && <button onClick={() => handleDeleteConfirm(user)} className="text-red-600 hover:text-red-800"><TrashIcon /></button>}
+                    <button onClick={() => handleDeleteConfirm(user)} className="text-red-600 hover:text-red-800"><TrashIcon /></button>
                   </div>
                 </td>
               </tr>
@@ -130,8 +141,8 @@ export const UserManagementPanel: React.FC = () => {
       <Modal isOpen={!!deletingUser} onClose={() => setDeletingUser(null)} title={t('deleteUserConfirmation')}>
           <div>{t('deleteUserConfirmation')}</div>
           <div className="flex justify-end space-x-2 mt-4">
-            <Button variant="secondary" onClick={() => setDeletingUser(null)}>{t('cancel')}</Button>
-            <Button variant="danger" onClick={handleDelete}>{t('delete')}</Button>
+            <Button variant="secondary" onClick={() => setDeletingUser(null)} disabled={isDeleting}>{t('cancel')}</Button>
+            <Button variant="danger" onClick={handleDelete} disabled={isDeleting}>{isDeleting ? t('deleting') : t('delete')}</Button>
           </div>
       </Modal>
 

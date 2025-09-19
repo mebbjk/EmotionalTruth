@@ -8,8 +8,9 @@ import { Input } from '../ui/Input';
 import { EditIcon } from '../icons/EditIcon';
 import { TrashIcon } from '../icons/TrashIcon';
 
-const AdForm: React.FC<{ ad?: Ad; onSave: (ad: Ad | Omit<Ad, 'id'>) => void; onCancel: () => void }> = ({ ad, onSave, onCancel }) => {
+const AdForm: React.FC<{ ad?: Ad; onSave: (ad: Ad | Omit<Ad, 'id'>) => Promise<void>; onCancel: () => void }> = ({ ad, onSave, onCancel }) => {
     const t = useTranslator();
+    const [isLoading, setIsLoading] = useState(false);
     const [formData, setFormData] = useState({
         title: ad?.title || '',
         imageUrl: ad?.imageUrl || '',
@@ -20,19 +21,24 @@ const AdForm: React.FC<{ ad?: Ad; onSave: (ad: Ad | Omit<Ad, 'id'>) => void; onC
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        onSave(ad ? { ...ad, ...formData } : formData);
+        setIsLoading(true);
+        try {
+            await onSave(ad ? { ...ad, ...formData } : formData);
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     return (
         <form onSubmit={handleSubmit} className="space-y-4">
-            <Input name="title" value={formData.title} onChange={handleChange} placeholder={t('title')} required />
-            <Input name="imageUrl" value={formData.imageUrl} onChange={handleChange} placeholder={t('imageUrl')} required />
-            <Input name="link" value={formData.link} onChange={handleChange} placeholder={t('link')} required />
+            <Input name="title" value={formData.title} onChange={handleChange} placeholder={t('title')} required disabled={isLoading} />
+            <Input name="imageUrl" value={formData.imageUrl} onChange={handleChange} placeholder={t('imageUrl')} required disabled={isLoading} />
+            <Input name="link" value={formData.link} onChange={handleChange} placeholder={t('link')} required disabled={isLoading} />
             <div className="flex justify-end space-x-2">
-                <Button type="button" variant="secondary" onClick={onCancel}>{t('cancel')}</Button>
-                <Button type="submit">{t('save')}</Button>
+                <Button type="button" variant="secondary" onClick={onCancel} disabled={isLoading}>{t('cancel')}</Button>
+                <Button type="submit" disabled={isLoading}>{isLoading ? t('saving') : t('save')}</Button>
             </div>
         </form>
     );
@@ -44,6 +50,7 @@ export const AdSettingsPanel: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAd, setEditingAd] = useState<Ad | undefined>(undefined);
   const [deletingAd, setDeletingAd] = useState<Ad | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const handleAddAd = () => {
     setEditingAd(undefined);
@@ -71,8 +78,13 @@ export const AdSettingsPanel: React.FC = () => {
 
   const handleDelete = async () => {
     if (deletingAd) {
-      await deleteAd(deletingAd.id);
-      setDeletingAd(null);
+        setIsDeleting(true);
+        try {
+            await deleteAd(deletingAd.id);
+        } finally {
+            setIsDeleting(false);
+            setDeletingAd(null);
+        }
     }
   };
 
@@ -116,8 +128,8 @@ export const AdSettingsPanel: React.FC = () => {
       <Modal isOpen={!!deletingAd} onClose={() => setDeletingAd(null)} title={t('deleteAdConfirmation')}>
           <div>{t('deleteAdConfirmation')}</div>
           <div className="flex justify-end space-x-2 mt-4">
-            <Button variant="secondary" onClick={() => setDeletingAd(null)}>{t('cancel')}</Button>
-            <Button variant="danger" onClick={handleDelete}>{t('delete')}</Button>
+            <Button variant="secondary" onClick={() => setDeletingAd(null)} disabled={isDeleting}>{t('cancel')}</Button>
+            <Button variant="danger" onClick={handleDelete} disabled={isDeleting}>{isDeleting ? t('deleting') : t('delete')}</Button>
           </div>
       </Modal>
     </div>
