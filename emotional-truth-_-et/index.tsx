@@ -1,9 +1,11 @@
+
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { AppContextProvider } from './contexts/AppContext';
 import { useAppContext } from './hooks/useAppContext';
 import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
+import './index.css';
 
 const App: React.FC = () => {
   const { currentUser } = useAppContext();
