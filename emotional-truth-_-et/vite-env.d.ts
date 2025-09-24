@@ -1,7 +1,6 @@
-// FIX: Removed `/// <reference types="vite/client" />`. It was causing a type resolution error.
+// FIX: Removed the `/// <reference types="vite/client" />` directive. It was causing a type resolution error.
 // This project uses `process.env` with custom types defined below, not `import.meta.env`,
 // so the "vite/client" types are not required.
-/// <reference types="vite/client" />
 
 // Since we are using Vite's `define` feature to expose environment variables on `process.env`,
 // we need to add type definitions for it to avoid TypeScript errors during development.

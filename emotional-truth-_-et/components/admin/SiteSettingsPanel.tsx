@@ -1,48 +1,62 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useAppContext } from '../../hooks/useAppContext';
 import { useTranslator } from '../../hooks/useTranslator';
 import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
 
 const LogoSettings: React.FC = () => {
-    const { logo, updateSiteLogo } = useAppContext();
+    const { logo, updateSiteLogo, uploadFile } = useAppContext();
     const t = useTranslator();
-    const [logoUrl, setLogoUrl] = useState(logo);
     const [isLoading, setIsLoading] = useState(false);
     const [message, setMessage] = useState('');
+    const [error, setError] = useState('');
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const handleUpdate = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
         setIsLoading(true);
         setMessage('');
+        setError('');
         try {
-            await updateSiteLogo(logoUrl);
+            const publicUrl = await uploadFile('site-assets', file);
+            await updateSiteLogo(publicUrl);
             setMessage(t('logoUpdated'));
-        } catch (error) {
-            setMessage('Error updating logo.');
+        } catch (err) {
+            console.error(err);
+            setError('Error uploading logo.');
         } finally {
             setIsLoading(false);
-            setTimeout(() => setMessage(''), 3000);
+            setTimeout(() => {
+                setMessage('');
+                setError('');
+            }, 3000);
         }
     };
 
     return (
-        <form onSubmit={handleUpdate} className="space-y-4">
+        <div className="space-y-4">
+             <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                className="hidden"
+                accept="image/png, image/jpeg, image/gif, image/svg+xml"
+                aria-hidden="true"
+            />
             <div>
-                <label htmlFor="logoUrl" className="block text-sm font-medium text-gray-700 mb-1">{t('siteLogoUrl')}</label>
-                <Input id="logoUrl" value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} disabled={isLoading} />
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('imagePreview')}</label>
+                <img src={logo} alt="Logo Preview" className="h-16 w-auto border p-1 rounded-md bg-gray-50 object-contain" />
             </div>
-            {logoUrl && (
-                <div>
-                    <p className="text-sm font-medium text-gray-700 mb-1">{t('imagePreview')}</p>
-                    <img src={logoUrl} alt="Logo Preview" className="h-16 border p-1 rounded-md bg-gray-50" />
-                </div>
-            )}
             <div>
-                <Button type="submit" disabled={isLoading}>{isLoading ? t('updating') : t('updateSettings')}</Button>
+                <Button onClick={() => fileInputRef.current?.click()} disabled={isLoading} aria-label={t('uploadLogo')}>
+                    {isLoading ? t('updating') : t('uploadLogo')}
+                </Button>
             </div>
             {message && <p className="text-green-600 mt-2">{message}</p>}
-        </form>
+            {error && <p className="text-red-600 mt-2">{error}</p>}
+        </div>
     );
 };
 

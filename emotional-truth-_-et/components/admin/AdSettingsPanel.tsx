@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useAppContext } from '../../hooks/useAppContext';
 import { useTranslator } from '../../hooks/useTranslator';
 import { Ad } from '../../types';
@@ -10,10 +10,14 @@ import { TrashIcon } from '../icons/TrashIcon';
 
 const AdForm: React.FC<{ ad?: Ad; onSave: (ad: Ad | Omit<Ad, 'id'>) => Promise<void>; onCancel: () => void }> = ({ ad, onSave, onCancel }) => {
     const t = useTranslator();
+    const { uploadFile } = useAppContext();
     const [isLoading, setIsLoading] = useState(false);
+    const [imageFile, setImageFile] = useState<File | null>(null);
+    const [imagePreview, setImagePreview] = useState<string | null>(ad?.imageUrl || null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
     const [formData, setFormData] = useState({
         title: ad?.title || '',
-        imageUrl: ad?.imageUrl || '',
         link: ad?.link || '',
     });
 
@@ -21,11 +25,35 @@ const AdForm: React.FC<{ ad?: Ad; onSave: (ad: Ad | Omit<Ad, 'id'>) => Promise<v
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
+    const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (file) {
+            setImageFile(file);
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setImagePreview(reader.result as string);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
         try {
-            await onSave(ad ? { ...ad, ...formData } : formData);
+            let finalImageUrl = ad?.imageUrl || '';
+            if (imageFile) {
+                finalImageUrl = await uploadFile('ad-images', imageFile);
+            }
+            
+            const saveData = {
+                ...formData,
+                imageUrl: finalImageUrl,
+            };
+
+            await onSave(ad ? { ...ad, ...saveData } : saveData);
+        } catch (error) {
+            console.error("Failed to save ad:", error);
         } finally {
             setIsLoading(false);
         }
@@ -33,10 +61,32 @@ const AdForm: React.FC<{ ad?: Ad; onSave: (ad: Ad | Omit<Ad, 'id'>) => Promise<v
 
     return (
         <form onSubmit={handleSubmit} className="space-y-4">
+            <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleImageChange}
+                className="hidden"
+                accept="image/png, image/jpeg, image/gif"
+                aria-hidden="true"
+            />
             <Input name="title" value={formData.title} onChange={handleChange} placeholder={t('title')} required disabled={isLoading} />
-            <Input name="imageUrl" value={formData.imageUrl} onChange={handleChange} placeholder={t('imageUrl')} required disabled={isLoading} />
             <Input name="link" value={formData.link} onChange={handleChange} placeholder={t('link')} required disabled={isLoading} />
-            <div className="flex justify-end space-x-2">
+            
+            <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('imagePreview')}</label>
+                {imagePreview ? (
+                    <img src={imagePreview} alt="Ad Preview" className="h-24 w-auto border p-1 rounded-md bg-gray-50 object-contain" />
+                ) : (
+                    <div className="h-24 w-full border-2 border-dashed border-gray-300 rounded-md flex items-center justify-center">
+                        <span className="text-gray-500 text-sm">No image selected</span>
+                    </div>
+                )}
+                <Button type="button" variant="secondary" onClick={() => fileInputRef.current?.click()} disabled={isLoading} className="mt-2" aria-label={t('uploadImage')}>
+                    {imagePreview ? t('changeImage') : t('uploadImage')}
+                </Button>
+            </div>
+            
+            <div className="flex justify-end space-x-2 pt-4">
                 <Button type="button" variant="secondary" onClick={onCancel} disabled={isLoading}>{t('cancel')}</Button>
                 <Button type="submit" disabled={isLoading}>{isLoading ? t('saving') : t('save')}</Button>
             </div>

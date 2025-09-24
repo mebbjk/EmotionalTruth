@@ -153,6 +153,22 @@ export const AppContextProvider: React.FC<AppContextProviderProps> = ({ children
     setAds(ads.filter(ad => ad.id !== adId));
   };
 
+  const uploadFile = async (bucket: string, file: File): Promise<string> => {
+    const fileName = `${Date.now()}-${file.name.replace(/\s/g, '_')}`;
+    const { error: uploadError } = await supabase.storage.from(bucket).upload(fileName, file);
+
+    if (uploadError) {
+        console.error('Upload Error:', uploadError);
+        throw uploadError;
+    }
+
+    const { data } = supabase.storage.from(bucket).getPublicUrl(fileName);
+    if (!data.publicUrl) {
+        throw new Error('Could not retrieve public URL for the uploaded file.');
+    }
+    return data.publicUrl;
+  };
+
   const value: AppContextType = {
     currentUser,
     users,
@@ -171,6 +187,7 @@ export const AppContextProvider: React.FC<AppContextProviderProps> = ({ children
     addAd,
     updateAd,
     deleteAd,
+    uploadFile,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

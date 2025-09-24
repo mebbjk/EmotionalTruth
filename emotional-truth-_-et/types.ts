@@ -41,6 +41,7 @@ export interface AppContextType {
     addAd: (ad: Omit<Ad, 'id'>) => Promise<void>;
     updateAd: (ad: Ad) => Promise<void>;
     deleteAd: (adId: number) => Promise<void>;
+    uploadFile: (bucket: string, file: File) => Promise<string>;
 }
 
 export type TranslationKeys = {
