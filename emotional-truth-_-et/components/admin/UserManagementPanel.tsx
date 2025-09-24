@@ -20,7 +20,7 @@ const UserForm: React.FC<{ user?: User; onSave: (user: User | Omit<User, 'id'>) 
         firstName: user?.firstName || '',
         lastName: user?.lastName || '',
         email: user?.email || '',
-        videoUrls: user?.videoUrls || [''],
+        videoUrls: (user?.videoUrls && user.videoUrls.length > 0) ? user.videoUrls : [''],
         password: '',
         confirmPassword: '',
     });
@@ -41,7 +41,11 @@ const UserForm: React.FC<{ user?: User; onSave: (user: User | Omit<User, 'id'>) 
 
     const removeVideoUrl = (index: number) => {
         const newVideoUrls = formData.videoUrls.filter((_, i) => i !== index);
-        setFormData({ ...formData, videoUrls: newVideoUrls });
+        if (newVideoUrls.length === 0) {
+            setFormData({ ...formData, videoUrls: [''] });
+        } else {
+            setFormData({ ...formData, videoUrls: newVideoUrls });
+        }
     };
 
 
@@ -98,7 +102,7 @@ const UserForm: React.FC<{ user?: User; onSave: (user: User | Omit<User, 'id'>) 
                             disabled={isLoading}
                             className="flex-grow"
                         />
-                        <Button type="button" variant="danger" onClick={() => removeVideoUrl(index)} disabled={isLoading || formData.videoUrls.length <= 1} aria-label={t('removeVideo')}>
+                        <Button type="button" variant="danger" onClick={() => removeVideoUrl(index)} disabled={isLoading} aria-label={t('removeVideo')}>
                             <TrashIcon className="w-4 h-4" />
                         </Button>
                     </div>
