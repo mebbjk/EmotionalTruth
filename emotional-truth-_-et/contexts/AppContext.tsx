@@ -154,17 +154,43 @@ export const AppContextProvider: React.FC<AppContextProviderProps> = ({ children
   };
 
   const uploadFile = async (bucket: string, file: File): Promise<string> => {
-    // Create a URL-safe and unique file name to prevent storage errors with special characters.
+    // Create a URL-safe and unique file name
     const lastDot = file.name.lastIndexOf('.');
     const fileExt = lastDot > -1 ? file.name.substring(lastDot + 1) : '';
     const baseName = lastDot > -1 ? file.name.substring(0, lastDot) : file.name;
     const cleanBaseName = baseName.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 50);
     const fileName = `${cleanBaseName}_${Date.now()}${fileExt ? '.' + fileExt : ''}`;
 
-    const { error: uploadError } = await supabase.storage.from(bucket).upload(fileName, file, {
+    let { error: uploadError } = await supabase.storage.from(bucket).upload(fileName, file, {
         cacheControl: '3600',
-        upsert: false // Don't overwrite existing files, as our names are unique.
+        upsert: false
     });
+
+    // If the bucket doesn't exist, try to create it and retry the upload.
+    if (uploadError && uploadError.message?.includes('Bucket not found')) {
+        console.warn(`Bucket '${bucket}' not found. Attempting to create it.`);
+        
+        const { error: createBucketError } = await supabase.storage.createBucket(
+            bucket,
+            {
+              public: true, // Logos and ads must be publicly accessible
+              allowedMimeTypes: ['image/png', 'image/jpeg', 'image/gif', 'image/svg+xml', 'image/webp'],
+            }
+        );
+
+        if (createBucketError) {
+            console.error(`Failed to create bucket '${bucket}':`, createBucketError);
+            throw new Error(`Bucket not found and could not be created. Please check Supabase permissions and create it manually.`);
+        }
+
+        console.log(`Bucket '${bucket}' created successfully. Retrying upload.`);
+        // Retry the upload
+        const { error: retryError } = await supabase.storage.from(bucket).upload(fileName, file, {
+            cacheControl: '3600',
+            upsert: false
+        });
+        uploadError = retryError; // Update the error status after retry
+    }
 
     if (uploadError) {
         console.error('Supabase Upload Error:', uploadError);
