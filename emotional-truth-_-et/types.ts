@@ -13,7 +13,7 @@ export interface User {
   lastName: string;
   email: string;
   role: 'user' | 'admin';
-  avatarUrl?: string;
+  videoUrls?: string[];
 }
 
 export interface Ad {
@@ -57,6 +57,12 @@ export type TranslationKeys = {
   invalidCredentials: string;
   invalidAdminPassword: string;
   userDashboardTitle: string;
+  yourVideo: string;
+  noVideoUrl: string;
+  videoUrl: string;
+  videoUrls: string;
+  addVideo: string;
+  removeVideo: string;
   adminPanelTitle: string;
   userManagement: string;
   siteSettings: string;
@@ -105,6 +111,5 @@ export type TranslationKeys = {
   deleting: string;
   updating: string;
   loading: string;
-  avatar: string;
-  uploadAvatar: string;
+  dragAndDropOrClick: string;
 };

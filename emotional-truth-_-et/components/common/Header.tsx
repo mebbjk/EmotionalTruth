@@ -6,7 +6,6 @@ import { Button } from '../ui/Button';
 import { Select } from '../ui/Select';
 import { LANGUAGES } from '../../constants';
 import { LanguageCode } from '../../types';
-import { UserIcon } from '../icons/UserIcon';
 
 export const Header: React.FC = () => {
   const { currentUser, logout, language, setLanguage, logo } = useAppContext();
@@ -38,11 +37,6 @@ export const Header: React.FC = () => {
               <span className="text-gray-800 font-medium">
                 {t('welcomeUser').replace('{{username}}', currentUser.username)}
               </span>
-              {currentUser.avatarUrl ? (
-                <img src={currentUser.avatarUrl} alt="User Avatar" className="h-10 w-10 rounded-full object-cover" />
-              ) : (
-                <UserIcon className="h-10 w-10 text-gray-500 bg-gray-200 rounded-full p-1" />
-              )}
               <Button onClick={logout} variant="secondary">
                 {t('logout')}
               </Button>

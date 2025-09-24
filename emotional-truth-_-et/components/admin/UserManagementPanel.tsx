@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { useAppContext } from '../../hooks/useAppContext';
 import { useTranslator } from '../../hooks/useTranslator';
 import { User } from '../../types';
@@ -7,24 +7,20 @@ import { Modal } from '../ui/Modal';
 import { Input } from '../ui/Input';
 import { EditIcon } from '../icons/EditIcon';
 import { TrashIcon } from '../icons/TrashIcon';
-import { UserIcon } from '../icons/UserIcon';
+import { PlusIcon } from '../icons/PlusIcon';
 
 const UserForm: React.FC<{ user?: User; onSave: (user: User | Omit<User, 'id'>) => Promise<void>; onCancel: () => void }> = ({ user, onSave, onCancel }) => {
     const t = useTranslator();
-    const { uploadFile } = useAppContext();
     const [isLoading, setIsLoading] = useState(false);
     const [isChangingPassword, setIsChangingPassword] = useState(false);
     const [error, setError] = useState('');
     
-    const [imageFile, setImageFile] = useState<File | null>(null);
-    const [imagePreview, setImagePreview] = useState<string | null>(user?.avatarUrl || null);
-    const fileInputRef = useRef<HTMLInputElement>(null);
-
     const [formData, setFormData] = useState({
         username: user?.username || '',
         firstName: user?.firstName || '',
         lastName: user?.lastName || '',
         email: user?.email || '',
+        videoUrls: user?.videoUrls || [''],
         password: '',
         confirmPassword: '',
     });
@@ -32,18 +28,22 @@ const UserForm: React.FC<{ user?: User; onSave: (user: User | Omit<User, 'id'>) 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
-
-    const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (file) {
-            setImageFile(file);
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setImagePreview(reader.result as string);
-            };
-            reader.readAsDataURL(file);
-        }
+    
+    const handleVideoUrlChange = (index: number, value: string) => {
+        const newVideoUrls = [...formData.videoUrls];
+        newVideoUrls[index] = value;
+        setFormData({ ...formData, videoUrls: newVideoUrls });
     };
+
+    const addVideoUrl = () => {
+        setFormData({ ...formData, videoUrls: [...formData.videoUrls, ''] });
+    };
+
+    const removeVideoUrl = (index: number) => {
+        const newVideoUrls = formData.videoUrls.filter((_, i) => i !== index);
+        setFormData({ ...formData, videoUrls: newVideoUrls });
+    };
+
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -57,17 +57,12 @@ const UserForm: React.FC<{ user?: User; onSave: (user: User | Omit<User, 'id'>) 
 
         setIsLoading(true);
         try {
-            let finalAvatarUrl = user?.avatarUrl || '';
-            if (imageFile) {
-                finalAvatarUrl = await uploadFile('avatars', imageFile);
-            }
-
-            const dataToSave: Omit<User, 'id' | 'role'> & { password?: string; role?: 'user'; avatarUrl?: string } = {
+            const dataToSave: Omit<User, 'id' | 'role'> & { password?: string; role?: 'user' } = {
                 username: formData.username,
                 firstName: formData.firstName,
                 lastName: formData.lastName,
                 email: formData.email,
-                avatarUrl: finalAvatarUrl,
+                videoUrls: formData.videoUrls.filter(url => url.trim() !== ''), // Filter out empty strings
             };
 
             if (wantsToChangePassword && formData.password) {
@@ -92,21 +87,28 @@ const UserForm: React.FC<{ user?: User; onSave: (user: User | Omit<User, 'id'>) 
             <Input name="lastName" value={formData.lastName} onChange={handleChange} placeholder={t('lastName')} required disabled={isLoading} />
             <Input name="email" type="email" value={formData.email} onChange={handleChange} placeholder={t('email')} required disabled={isLoading} />
             
-            <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">{t('avatar')}</label>
-                <input type="file" ref={fileInputRef} onChange={handleImageChange} className="hidden" accept="image/png, image/jpeg, image/gif" aria-hidden="true"/>
-                <div className="flex items-center space-x-4">
-                    {imagePreview ? (
-                        <img src={imagePreview} alt="Avatar Preview" className="h-16 w-16 rounded-full object-cover" />
-                    ) : (
-                       <UserIcon className="h-16 w-16 text-gray-400 bg-gray-100 rounded-full p-2" />
-                    )}
-                    <Button type="button" variant="secondary" onClick={() => fileInputRef.current?.click()} disabled={isLoading} aria-label={t('uploadAvatar')}>
-                        {imagePreview ? t('changeImage') : t('uploadAvatar')}
-                    </Button>
-                </div>
+            <div className="space-y-2 pt-2">
+                <label className="block text-sm font-medium text-gray-700">{t('videoUrls')}</label>
+                {formData.videoUrls.map((url, index) => (
+                    <div key={index} className="flex items-center space-x-2">
+                        <Input 
+                            value={url} 
+                            onChange={(e) => handleVideoUrlChange(index, e.target.value)} 
+                            placeholder={`${t('videoUrl')} ${index + 1}`} 
+                            disabled={isLoading}
+                            className="flex-grow"
+                        />
+                        <Button type="button" variant="danger" onClick={() => removeVideoUrl(index)} disabled={isLoading || formData.videoUrls.length <= 1} aria-label={t('removeVideo')}>
+                            <TrashIcon className="w-4 h-4" />
+                        </Button>
+                    </div>
+                ))}
+                <Button type="button" variant="secondary" onClick={addVideoUrl} disabled={isLoading} className="flex items-center space-x-2">
+                    <PlusIcon className="w-4 h-4" />
+                    <span>{t('addVideo')}</span>
+                </Button>
             </div>
-
+            
             {user && (
                 <Button type="button" variant="secondary" onClick={() => { setIsChangingPassword(!isChangingPassword); setError(''); }}>
                     {isChangingPassword ? t('cancel') : t('changePassword')}
@@ -185,7 +187,6 @@ export const UserManagementPanel: React.FC = () => {
         <table className="min-w-full bg-white border">
           <thead className="bg-gray-50">
             <tr>
-              <th className="py-2 px-4 border-b text-left">{t('avatar')}</th>
               <th className="py-2 px-4 border-b text-left">{t('usernameLabel')}</th>
               <th className="py-2 px-4 border-b text-left">{t('firstName')}</th>
               <th className="py-2 px-4 border-b text-left">{t('lastName')}</th>
@@ -196,13 +197,6 @@ export const UserManagementPanel: React.FC = () => {
           <tbody>
             {users.map(user => (
               <tr key={user.id} className={user.role === 'admin' ? 'bg-gray-100' : ''}>
-                <td className="py-2 px-4 border-b">
-                    {user.avatarUrl ? (
-                        <img src={user.avatarUrl} alt={`${user.username}'s avatar`} className="h-10 w-10 rounded-full object-cover" />
-                    ) : (
-                        <UserIcon className="h-10 w-10 text-gray-400 bg-gray-200 rounded-full p-1" />
-                    )}
-                </td>
                 <td className="py-2 px-4 border-b">{user.username}</td>
                 <td className="py-2 px-4 border-b">{user.firstName}</td>
                 <td className="py-2 px-4 border-b">{user.lastName}</td>

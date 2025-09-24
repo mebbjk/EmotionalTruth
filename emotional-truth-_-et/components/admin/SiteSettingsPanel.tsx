@@ -1,8 +1,9 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { useAppContext } from '../../hooks/useAppContext';
 import { useTranslator } from '../../hooks/useTranslator';
 import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
+import { ImageDropzone } from '../ui/ImageDropzone';
 
 const LogoSettings: React.FC = () => {
     const { logo, updateSiteLogo, uploadFile } = useAppContext();
@@ -10,10 +11,8 @@ const LogoSettings: React.FC = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [message, setMessage] = useState('');
     const [error, setError] = useState('');
-    const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
+    const handleFileSelect = async (file: File | null) => {
         if (!file) return;
 
         setIsLoading(true);
@@ -25,35 +24,25 @@ const LogoSettings: React.FC = () => {
             setMessage(t('logoUpdated'));
         } catch (err) {
             console.error(err);
-            setError('Error uploading logo.');
+            const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred.';
+            setError(`Error uploading logo: ${errorMessage}`);
         } finally {
             setIsLoading(false);
             setTimeout(() => {
                 setMessage('');
                 setError('');
-            }, 3000);
+            }, 5000);
         }
     };
 
     return (
         <div className="space-y-4">
-             <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleFileChange}
-                className="hidden"
-                accept="image/png, image/jpeg, image/gif, image/svg+xml"
-                aria-hidden="true"
+            <ImageDropzone 
+                onFileSelect={handleFileSelect}
+                existingImageUrl={logo}
+                label={t('uploadLogo')}
+                disabled={isLoading}
             />
-            <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">{t('imagePreview')}</label>
-                <img src={logo} alt="Logo Preview" className="h-16 w-auto border p-1 rounded-md bg-gray-50 object-contain" />
-            </div>
-            <div>
-                <Button onClick={() => fileInputRef.current?.click()} disabled={isLoading} aria-label={t('uploadLogo')}>
-                    {isLoading ? t('updating') : t('uploadLogo')}
-                </Button>
-            </div>
             {message && <p className="text-green-600 mt-2">{message}</p>}
             {error && <p className="text-red-600 mt-2">{error}</p>}
         </div>
