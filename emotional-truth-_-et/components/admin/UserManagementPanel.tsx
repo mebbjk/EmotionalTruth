@@ -79,6 +79,10 @@ const UserForm: React.FC<{ user?: User; onSave: (user: User | Omit<User, 'id'>) 
                 dataToSave.role = 'user';
                 await onSave(dataToSave as Omit<User, 'id'>);
             }
+        } catch (err) {
+            console.error("Failed to save user:", err);
+            const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred.';
+            setError(`Failed to save user: ${errorMessage}`);
         } finally {
             setIsLoading(false);
         }
