@@ -154,18 +154,29 @@ export const AppContextProvider: React.FC<AppContextProviderProps> = ({ children
   };
 
   const uploadFile = async (bucket: string, file: File): Promise<string> => {
-    const fileName = `${Date.now()}-${file.name.replace(/\s/g, '_')}`;
-    const { error: uploadError } = await supabase.storage.from(bucket).upload(fileName, file);
+    // Create a URL-safe and unique file name to prevent storage errors with special characters.
+    const lastDot = file.name.lastIndexOf('.');
+    const fileExt = lastDot > -1 ? file.name.substring(lastDot + 1) : '';
+    const baseName = lastDot > -1 ? file.name.substring(0, lastDot) : file.name;
+    const cleanBaseName = baseName.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 50);
+    const fileName = `${cleanBaseName}_${Date.now()}${fileExt ? '.' + fileExt : ''}`;
+
+    const { error: uploadError } = await supabase.storage.from(bucket).upload(fileName, file, {
+        cacheControl: '3600',
+        upsert: false // Don't overwrite existing files, as our names are unique.
+    });
 
     if (uploadError) {
-        console.error('Upload Error:', uploadError);
-        throw uploadError;
+        console.error('Supabase Upload Error:', uploadError);
+        throw new Error(`Failed to upload file: ${uploadError.message}`);
     }
 
     const { data } = supabase.storage.from(bucket).getPublicUrl(fileName);
+    
     if (!data.publicUrl) {
-        throw new Error('Could not retrieve public URL for the uploaded file.');
+        throw new Error('File was uploaded, but could not retrieve its public URL.');
     }
+    
     return data.publicUrl;
   };
 
