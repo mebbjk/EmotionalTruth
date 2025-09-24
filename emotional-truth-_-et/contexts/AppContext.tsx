@@ -56,8 +56,36 @@ export const AppContextProvider: React.FC<AppContextProviderProps> = ({ children
         if (usersError) throw usersError;
         if (adsError) throw adsError;
         if (settingsError) throw settingsError;
+        
+        let currentUsers = usersData || [];
 
-        const parsedUsers = (usersData || []).map(mapSupabaseUserToAppUser);
+        // Seed admin user if not exists
+        const adminExists = currentUsers.some(u => u.username === 'admin');
+        if (!adminExists) {
+            console.log("Admin user not found, creating one with default password.");
+            const { data: newAdmin, error: adminCreateError } = await supabase
+                .from('users')
+                .insert({
+                    username: 'admin',
+                    password: 'admin123', // Default password
+                    firstName: 'Admin',
+                    lastName: 'User',
+                    email: 'admin@example.com',
+                    role: 'admin',
+                })
+                .select()
+                .single();
+            
+            if (adminCreateError) {
+                console.error("Failed to create admin user:", adminCreateError);
+            } else if (newAdmin) {
+                console.log("Admin user created successfully.");
+                currentUsers.push(newAdmin);
+            }
+        }
+
+
+        const parsedUsers = (currentUsers || []).map(mapSupabaseUserToAppUser);
         setUsers(parsedUsers);
         setAds(adsData || []);
         
