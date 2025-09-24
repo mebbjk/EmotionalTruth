@@ -38,7 +38,23 @@ export const AppContextProvider: React.FC<AppContextProviderProps> = ({ children
         if (adsError) throw adsError;
         if (settingsError) throw settingsError;
 
-        setUsers(usersData || []);
+        const parsedUsers = (usersData || []).map(user => {
+            let videoUrls: string[] = [];
+            if (typeof user.videoUrls === 'string') {
+                try {
+                    const parsed = JSON.parse(user.videoUrls);
+                    if (Array.isArray(parsed)) {
+                        videoUrls = parsed.filter((item): item is string => typeof item === 'string');
+                    }
+                } catch (e) {
+                    console.error(`Failed to parse videoUrls for user ${user.id}:`, user.videoUrls);
+                }
+            } else if (Array.isArray(user.videoUrls)) {
+                videoUrls = user.videoUrls;
+            }
+            return { ...user, videoUrls };
+        });
+        setUsers(parsedUsers);
         setAds(adsData || []);
         
         // FIX: Handle case where settingsData might be null to prevent crash.
@@ -97,19 +113,55 @@ export const AppContextProvider: React.FC<AppContextProviderProps> = ({ children
   };
 
   const addUser = async (userData: Omit<User, 'id'>) => {
-    const { data, error } = await supabase.from('users').insert([userData]).select();
+    const supabaseData = {
+        ...userData,
+        videoUrls: JSON.stringify(userData.videoUrls?.filter(url => url) || []),
+    };
+
+    const { data, error } = await supabase.from('users').insert([supabaseData]).select();
     if (error) throw error;
-    if (data) setUsers([...users, data[0]]);
+    if (data && data.length > 0) {
+        const newUser = data[0] as User;
+        if (typeof newUser.videoUrls === 'string') {
+            try {
+                const parsed = JSON.parse(newUser.videoUrls);
+                newUser.videoUrls = Array.isArray(parsed) ? parsed : [];
+            } catch (e) {
+                console.error('Failed to parse videoUrls for new user', e);
+                newUser.videoUrls = [];
+            }
+        }
+        setUsers([...users, newUser]);
+    }
   };
 
   const updateUser = async (updatedUser: User) => {
     const { id, ...updateData } = updatedUser;
-    const { data, error } = await supabase.from('users').update(updateData).eq('id', id).select();
+    
+    const supabaseData: any = { ...updateData };
+    if (Array.isArray(supabaseData.videoUrls)) {
+        supabaseData.videoUrls = JSON.stringify(supabaseData.videoUrls.filter(url => url));
+    }
+
+    const { data, error } = await supabase.from('users').update(supabaseData).eq('id', id).select();
     if (error) throw error;
-    if (data) {
-      setUsers(users.map(u => u.id === id ? data[0] : u));
+    if (data && data.length > 0) {
+      const returnedUser = data[0] as User;
+
+      if (typeof returnedUser.videoUrls === 'string') {
+          try {
+              const parsed = JSON.parse(returnedUser.videoUrls);
+              returnedUser.videoUrls = Array.isArray(parsed) ? parsed : [];
+          } catch(e) {
+              console.error('Failed to parse videoUrls from update response', e);
+              returnedUser.videoUrls = [];
+          }
+      }
+
+      setUsers(users.map(u => u.id === id ? returnedUser : u));
+
       if (currentUser?.id === id) {
-        const userToStore = data[0];
+        const userToStore = { ...returnedUser };
         delete userToStore.password;
         setCurrentUser(userToStore);
         sessionStorage.setItem('currentUser', JSON.stringify(userToStore));
